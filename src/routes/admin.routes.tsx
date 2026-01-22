@@ -18,7 +18,9 @@
 // import StudentUpdate from "../pages/admin/userManagement/StudentUpdate";
 
 import Dashboard from "../pages/Dashboard";
-import Users from "../pages/Users";
+import Products from "../pages/Products/Products";
+import Settings from "../pages/Settings/Settings";
+import Users from "../pages/Users/Users";
 
 export const adminPaths = [
   {
@@ -30,6 +32,16 @@ export const adminPaths = [
     name: "Users",
     path: "users",
     element: <Users />,
+  },
+  {
+    name: "Products",
+    path: "products",
+    element: <Products />,
+  },
+  {
+    name: "settings",
+    path: "settings",
+    element: <Settings />,
   },
   // {
   //   name: "Dashboard",
