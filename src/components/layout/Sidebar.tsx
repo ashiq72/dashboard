@@ -1,8 +1,9 @@
 import { Layout, Menu } from "antd";
+import { sidebarItemsGenerator } from "../../utils/sidebarItemsGenerator";
+import { adminPaths } from "../../routes/admin.routes";
+
 import { useAppSelector } from "../../redux/hooks";
 import { selectCurrentUser } from "../../redux/features/auth/authSlice";
-import { adminPaths } from "../../routes/admin.routes";
-import { sidebarItemsGenerator } from "../../utils/sidebarItemsGenerator";
 
 const { Sider } = Layout;
 
