@@ -1,13 +1,14 @@
-import "./App.css";
-import { Button } from "@/components/ui/button";
+import { ThemeProvider } from './components/ThemeProvider';
 
-function App() {
+export const App = () => {
   return (
     <>
-      <h1 className="text-red-500">Vite + React</h1>
-      <Button>Click me</Button>
+      <ThemeProvider
+        defaultTheme='dark'
+        storageKey='vite-ui-theme'
+      >
+        App
+      </ThemeProvider>
     </>
   );
-}
-
-export default App;
+};
