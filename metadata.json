@@ -1,8 +1,0 @@
-{
-  "name": "VibeStream Social",
-  "description": "A high-performance, AI-integrated social media platform featuring smart post composition, real-time-like interactions, and a modern glassmorphic UI.",
-  "requestFramePermissions": [
-    "camera",
-    "microphone"
-  ]
-}
