@@ -11,13 +11,22 @@ import type {
   OrderStatus,
   PaymentStatus,
   Product,
+  ProductAttributeSchema,
+  ProductFacets,
   ProductPayload,
   ProductStatus,
   ProductUpdatePayload,
   Slider,
   SliderPayload,
+  TenantWorkspace,
   Warehouse,
   WarehousePayload,
+  ShippingMethod,
+  ShippingMethodPayload,
+  Collection,
+  CollectionPayload,
+  Campaign,
+  CampaignPayload,
 } from "../types";
 import { clearSession, getStoredSession, notifySessionExpired } from "./session";
 
@@ -25,10 +34,13 @@ const API_URL =
   import.meta.env.VITE_API_URL?.trim().replace(/\/+$/, "") ||
   "http://localhost:4000/api/v1";
 
-const DEFAULT_TENANT_ID = import.meta.env.VITE_TENANT_ID || "shop360";
+const DEFAULT_TENANT_ID = import.meta.env.VITE_TENANT_ID || "devtenant";
 const REQUEST_TIMEOUT_MS = 20_000;
 
 type Query = Record<string, string | number | boolean | undefined>;
+type ApiRequestOptions = RequestInit & {
+  tenantMode?: "session" | "none";
+};
 
 const toQueryString = (query?: Query) => {
   if (!query) return "";
@@ -91,18 +103,21 @@ export const getTenantId = () =>
 
 export async function apiRequest<T>(
   path: string,
-  options: RequestInit = {},
+  options: ApiRequestOptions = {},
 ): Promise<ApiResponse<T>> {
   const session = getStoredSession();
-  const headers = new Headers(options.headers);
+  const { tenantMode = "session", ...requestOptions } = options;
+  const headers = new Headers(requestOptions.headers);
   const controller = new AbortController();
   let timedOut = false;
 
-  if (!(options.body instanceof FormData)) {
+  if (!(requestOptions.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
 
-  headers.set("x-tenant-id", session?.tenantId || DEFAULT_TENANT_ID);
+  if (tenantMode === "session" && !headers.has("x-tenant-id")) {
+    headers.set("x-tenant-id", session?.tenantId || DEFAULT_TENANT_ID);
+  }
   if (session?.token) {
     headers.set("Authorization", `Bearer ${session.token}`);
   }
@@ -112,11 +127,11 @@ export async function apiRequest<T>(
     controller.abort();
   }, REQUEST_TIMEOUT_MS);
 
-  if (options.signal) {
-    if (options.signal.aborted) {
+  if (requestOptions.signal) {
+    if (requestOptions.signal.aborted) {
       controller.abort();
     } else {
-      options.signal.addEventListener("abort", () => controller.abort(), {
+      requestOptions.signal.addEventListener("abort", () => controller.abort(), {
         once: true,
       });
     }
@@ -124,7 +139,7 @@ export async function apiRequest<T>(
 
   try {
     const response = await fetch(`${API_URL}${path}`, {
-      ...options,
+      ...requestOptions,
       headers,
       signal: controller.signal,
     });
@@ -155,9 +170,11 @@ export async function apiRequest<T>(
   }
 }
 
-export async function login(email: string, password: string) {
+export async function login(email: string, password: string, tenantId?: string) {
   return apiRequest<{ accessToken: string; tenantId: string }>("/auth/login", {
     method: "POST",
+    tenantMode: "none",
+    headers: tenantId ? { "x-tenant-id": tenantId } : undefined,
     body: JSON.stringify({ email, password }),
   });
 }
@@ -169,6 +186,7 @@ export async function getMe() {
 export async function healthCheck() {
   return apiRequest<{ status?: string; uptime?: number; timestamp?: string }>(
     "/health",
+    { tenantMode: "none" },
   );
 }
 
@@ -193,12 +211,32 @@ const normalizeLowStockReport = (data: unknown): LowStockReport => {
 };
 
 export const ecommerceApi = {
+  currentTenant: () => apiRequest<TenantWorkspace>("/tenants/current"),
   products: (query?: Query) =>
     list<Product>("/ecommerce/products", { limit: 50, ...query }),
+  productAdmin: (id: string) =>
+    apiRequest<Product>(`/ecommerce/products/admin/${id}`),
+  productFacets: async () => {
+    const response = await apiRequest<ProductFacets>(
+      "/ecommerce/products/facets",
+    );
+    return response.data;
+  },
+  productAttributeSchemas: async () => {
+    const response = await apiRequest<ProductAttributeSchema[]>(
+      "/ecommerce/products/attribute-schemas",
+    );
+    return Array.isArray(response.data) ? response.data : [];
+  },
   createProduct: (payload: ProductPayload) =>
     apiRequest<Product>("/ecommerce/products/create-product", {
       method: "POST",
       body: JSON.stringify(payload),
+    }),
+  createProductForm: (formData: FormData) =>
+    apiRequest<Product>("/ecommerce/products/create-product", {
+      method: "POST",
+      body: formData,
     }),
   updateProduct: (id: string, payload: ProductUpdatePayload) =>
     apiRequest<Product>(`/ecommerce/products/${id}`, {
@@ -209,6 +247,11 @@ export const ecommerceApi = {
     apiRequest<Product>(`/ecommerce/products/${id}`, {
       method: "PATCH",
       body: formData,
+    }),
+  createProductOverride: (id: string, payload: ProductUpdatePayload) =>
+    apiRequest<Product>(`/ecommerce/products/${id}/override`, {
+      method: "POST",
+      body: JSON.stringify(payload),
     }),
   deleteProduct: (id: string) =>
     apiRequest<Product>(`/ecommerce/products/${id}`, {
@@ -229,6 +272,11 @@ export const ecommerceApi = {
     apiRequest<Category>("/ecommerce/categories/create-category", {
       method: "POST",
       body: JSON.stringify(payload),
+    }),
+  createCategoryForm: (formData: FormData) =>
+    apiRequest<Category>("/ecommerce/categories/create-category", {
+      method: "POST",
+      body: formData,
     }),
   updateCategory: (id: string, payload: Partial<CategoryPayload>) =>
     apiRequest<Category>(`/ecommerce/categories/${id}`, {
@@ -269,6 +317,11 @@ export const ecommerceApi = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  createSliderForm: (formData: FormData) =>
+    apiRequest<Slider>("/ecommerce/sliders/create-slider", {
+      method: "POST",
+      body: formData,
+    }),
   updateSlider: (id: string, payload: Partial<SliderPayload>) =>
     apiRequest<Slider>(`/ecommerce/sliders/${id}`, {
       method: "PATCH",
@@ -283,6 +336,11 @@ export const ecommerceApi = {
     apiRequest<Branding>("/ecommerce/branding", {
       method: "PATCH",
       body: JSON.stringify(payload),
+    }),
+  updateBrandingForm: (formData: FormData) =>
+    apiRequest<Branding>("/ecommerce/branding", {
+      method: "PATCH",
+      body: formData,
     }),
   updateProductStatus: (id: string, status: ProductStatus) =>
     apiRequest<Product>(`/ecommerce/products/${id}/status`, {
@@ -301,5 +359,50 @@ export const ecommerceApi = {
     apiRequest<Order>(`/ecommerce/orders/${id}/status`, {
       method: "PATCH",
       body: JSON.stringify(payload),
+    }),
+  shippingMethods: () => list<ShippingMethod>("/ecommerce/shipping-methods"),
+  createShippingMethod: (payload: ShippingMethodPayload) =>
+    apiRequest<ShippingMethod>("/ecommerce/shipping-methods", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateShippingMethod: (id: string, payload: Partial<ShippingMethodPayload>) =>
+    apiRequest<ShippingMethod>(`/ecommerce/shipping-methods/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  deleteShippingMethod: (id: string) =>
+    apiRequest<ShippingMethod>(`/ecommerce/shipping-methods/${id}`, {
+      method: "DELETE",
+    }),
+  collections: () => list<Collection>("/ecommerce/collections"),
+  createCollection: (payload: CollectionPayload) =>
+    apiRequest<Collection>("/ecommerce/collections", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateCollection: (id: string, payload: Partial<CollectionPayload>) =>
+    apiRequest<Collection>(`/ecommerce/collections/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  deleteCollection: (id: string) =>
+    apiRequest<Collection>(`/ecommerce/collections/${id}`, {
+      method: "DELETE",
+    }),
+  campaigns: () => list<Campaign>("/ecommerce/campaigns"),
+  createCampaign: (payload: CampaignPayload) =>
+    apiRequest<Campaign>("/ecommerce/campaigns", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateCampaign: (id: string, payload: Partial<CampaignPayload>) =>
+    apiRequest<Campaign>(`/ecommerce/campaigns/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  deleteCampaign: (id: string) =>
+    apiRequest<Campaign>(`/ecommerce/campaigns/${id}`, {
+      method: "DELETE",
     }),
 };

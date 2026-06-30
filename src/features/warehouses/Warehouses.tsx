@@ -1,5 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useState } from "react";
-import { Plus, RefreshCw, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { ecommerceApi } from "../../lib/api";
 import type { Warehouse } from "../../types";
 import { activeLabel, confirmAction, date, getErrorMessage } from "../../shared/utils";
@@ -8,11 +9,7 @@ import { DataPage, PanelTitle } from "../../shared/ui/page";
 
 export function Warehouses() {
   const [rows, setRows] = useState<Warehouse[]>([]);
-  const [name, setName] = useState("");
-  const [code, setCode] = useState("");
-  const [address, setAddress] = useState("");
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
@@ -31,28 +28,6 @@ export function Warehouses() {
   useEffect(() => {
     void load();
   }, [load]);
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    setSaving(true);
-    setError("");
-    try {
-      await ecommerceApi.createWarehouse({
-        name,
-        code: code || undefined,
-        address: address || undefined,
-        isActive: true,
-      });
-      setName("");
-      setCode("");
-      setAddress("");
-      await load();
-    } catch (err) {
-      setError(getErrorMessage(err, "Warehouse could not be created"));
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const toggle = async (warehouse: Warehouse) => {
     setError("");
@@ -82,34 +57,19 @@ export function Warehouses() {
       title="Warehouses"
       detail="Stock locations used by product inventory"
       actions={
-        <button className="ghost-button" type="button" onClick={() => void load()}>
-          <RefreshCw size={16} />
-          Refresh
-        </button>
+        <div className="filters">
+          <button className="ghost-button" type="button" onClick={() => void load()}>
+            <RefreshCw size={16} />
+            Refresh
+          </button>
+          <Link className="primary-button" to="/warehouses/new">
+            <Plus size={16} />
+            New warehouse
+          </Link>
+        </div>
       }
     >
       {error && <ErrorBanner message={error} />}
-      <section className="panel admin-form-panel">
-        <PanelTitle title="Add warehouse" detail="Create a fulfillment location" />
-        <form className="admin-form compact-form" onSubmit={submit}>
-          <label>
-            Name
-            <input value={name} onChange={(event) => setName(event.target.value)} required />
-          </label>
-          <label>
-            Code
-            <input value={code} onChange={(event) => setCode(event.target.value)} />
-          </label>
-          <label className="form-wide">
-            Address
-            <input value={address} onChange={(event) => setAddress(event.target.value)} />
-          </label>
-          <button className="primary-button form-submit" type="submit" disabled={saving}>
-            <Plus size={16} />
-            {saving ? "Creating..." : "Create warehouse"}
-          </button>
-        </form>
-      </section>
       <div className="table-card">
         <table>
           <thead>
@@ -168,3 +128,75 @@ export function Warehouses() {
   );
 }
 
+export function WarehouseCreatePage() {
+  const navigate = useNavigate();
+  const [name, setName] = useState("");
+  const [code, setCode] = useState("");
+  const [address, setAddress] = useState("");
+  const [isActive, setIsActive] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      await ecommerceApi.createWarehouse({
+        name,
+        code: code || undefined,
+        address: address || undefined,
+        isActive,
+      });
+      navigate("/warehouses");
+    } catch (err) {
+      setError(getErrorMessage(err, "Warehouse could not be created"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <DataPage
+      title="Create warehouse"
+      detail="Add a fulfillment location for product stock and reservations"
+      actions={
+        <Link className="ghost-button" to="/warehouses">
+          <ArrowLeft size={16} />
+          Warehouse list
+        </Link>
+      }
+    >
+      {error && <ErrorBanner message={error} />}
+      <section className="panel admin-form-panel create-form-panel">
+        <PanelTitle title="Warehouse details" detail="Location identity and availability" />
+        <form className="admin-form compact-form" onSubmit={submit}>
+          <label>
+            Name
+            <input value={name} onChange={(event) => setName(event.target.value)} required />
+          </label>
+          <label>
+            Code
+            <input value={code} onChange={(event) => setCode(event.target.value)} />
+          </label>
+          <label className="form-wide">
+            Address
+            <input value={address} onChange={(event) => setAddress(event.target.value)} />
+          </label>
+          <label className="check-row">
+            <input
+              checked={isActive}
+              onChange={(event) => setIsActive(event.target.checked)}
+              type="checkbox"
+            />
+            Active warehouse
+          </label>
+          <button className="primary-button form-submit" type="submit" disabled={saving}>
+            <Plus size={16} />
+            {saving ? "Creating..." : "Create warehouse"}
+          </button>
+        </form>
+      </section>
+    </DataPage>
+  );
+}

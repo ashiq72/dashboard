@@ -30,6 +30,18 @@ export type AuthSession = {
   user?: SessionUser;
 };
 
+export type TenantWorkspace = {
+  tenantId: string;
+  email?: string | null;
+  domain?: string | null;
+  subdomain?: string | null;
+  status: "active" | "disabled";
+  plan?: "basic" | "business" | "pro";
+  region?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export type ProductStatus = "draft" | "active" | "archived";
 export type ProductListStatus = ProductStatus | "inactive" | "all";
 
@@ -69,8 +81,17 @@ export type ProductSeo = {
   keywords?: string[];
 };
 
+export type ProductFile = {
+  name: string;
+  url: string;
+  type?: string;
+  size?: number;
+  isPublic?: boolean;
+};
+
 export type Product = {
   _id: string;
+  productType?: "physical" | "digital" | "service";
   name: string;
   slug?: string;
   description?: string;
@@ -94,7 +115,8 @@ export type Product = {
   scope?: "tenant" | "global";
   thumbnail?: string;
   images?: string[];
-  categories?: unknown[];
+  files?: ProductFile[];
+  categories?: Array<string | CategoryRef>;
   weight?: number;
   dimensions?: ProductDimensions;
   options?: ProductOption[];
@@ -108,6 +130,7 @@ export type Product = {
 
 export type ProductPayload = {
   name: string;
+  productType?: "physical" | "digital" | "service";
   slug?: string;
   description?: string;
   shortDescription?: string;
@@ -125,6 +148,8 @@ export type ProductPayload = {
   reserved?: number;
   thumbnail?: string;
   images?: string[];
+  files?: ProductFile[];
+  categories?: string[];
   status?: ProductStatus;
   trackStock?: boolean;
   isFeatured?: boolean;
@@ -135,14 +160,47 @@ export type ProductPayload = {
   attributes?: Record<string, string>;
   faqs?: ProductFaq[];
   seo?: ProductSeo;
+  replaceImages?: boolean;
+  clearFields?: string[];
 };
 
 export type ProductUpdatePayload = Partial<ProductPayload>;
 
 export type InventoryAdjustPayload = {
   delta: number;
+  variantSku?: string;
+  warehouseId?: string;
   reason?: string;
   note?: string;
+};
+
+export type ProductFacet = {
+  value: string;
+  count: number;
+};
+
+export type ProductFacets = {
+  brands: ProductFacet[];
+  tags: ProductFacet[];
+  categories: Array<{
+    id: string;
+    name?: string;
+    slug?: string;
+    count: number;
+  }>;
+  attributes: Array<{
+    key: string;
+    values: ProductFacet[];
+  }>;
+};
+
+export type ProductAttributeSchema = {
+  _id: string;
+  key: string;
+  type: "string" | "number" | "boolean" | "enum";
+  required?: boolean;
+  allowedValues?: string[];
+  description?: string;
 };
 
 export type OrderStatus =
@@ -180,7 +238,22 @@ export type Order = {
   currency?: string;
   status?: OrderStatus;
   paymentStatus?: PaymentStatus;
+  paymentMethod?: "cash_on_delivery" | "card" | "bank_transfer";
   fulfillmentStatus?: FulfillmentStatus;
+  shippingMethod?: {
+    id?: string;
+    name?: string;
+    carrier?: string;
+    service?: string;
+    price?: number;
+    minDeliveryDays?: number;
+    maxDeliveryDays?: number;
+  };
+  campaign?: {
+    name?: string;
+    code?: string;
+  };
+  discount?: number;
   items?: Array<{
     name?: string;
     quantity?: number;
@@ -285,9 +358,77 @@ export type Branding = {
   tenantId?: string;
   logoDesktop?: string;
   logoMobile?: string;
+  storeName?: string;
+  tagline?: string;
+  announcement?: string;
+  supportEmail?: string;
+  supportPhone?: string;
+  address?: string;
+  currency?: string;
   createdAt?: string;
   updatedAt?: string;
 };
+
+export type ShippingMethod = {
+  _id: string;
+  name: string;
+  code: string;
+  description?: string;
+  carrier?: string;
+  service?: string;
+  countries?: string[];
+  price: number;
+  freeAbove?: number;
+  minDeliveryDays: number;
+  maxDeliveryDays: number;
+  priority?: number;
+  isActive?: boolean;
+  createdAt?: string;
+};
+
+export type ShippingMethodPayload = Omit<ShippingMethod, "_id" | "createdAt">;
+
+export type Collection = {
+  _id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  image?: string;
+  productIds?: string[];
+  categoryIds?: string[];
+  tags?: string[];
+  priority?: number;
+  isFeatured?: boolean;
+  isActive?: boolean;
+  createdAt?: string;
+};
+
+export type CollectionPayload = Omit<Collection, "_id" | "createdAt">;
+
+export type Campaign = {
+  _id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  badge?: string;
+  image?: string;
+  code?: string;
+  discountType: "percentage" | "fixed";
+  discountValue: number;
+  minimumSpend?: number;
+  maximumDiscount?: number;
+  productIds?: string[];
+  categoryIds?: string[];
+  tags?: string[];
+  startsAt: string;
+  endsAt: string;
+  priority?: number;
+  isFeatured?: boolean;
+  isActive?: boolean;
+  createdAt?: string;
+};
+
+export type CampaignPayload = Omit<Campaign, "_id" | "createdAt">;
 
 export type ListResult<T> = {
   rows: T[];

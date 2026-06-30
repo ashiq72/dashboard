@@ -29,6 +29,14 @@ export const getStoredSession = (): AuthSession | null => {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const session = JSON.parse(raw) as AuthSession;
+    if (
+      !session.token ||
+      !session.tenantId ||
+      (session.user?.tenantId && session.user.tenantId !== session.tenantId)
+    ) {
+      clearSession();
+      return null;
+    }
     if (isExpired(session)) {
       clearSession();
       return null;
@@ -41,10 +49,20 @@ export const getStoredSession = (): AuthSession | null => {
 };
 
 export const saveSession = (token: string, tenantId: string): AuthSession => {
+  const user = decodeJwtPayload(token);
+  if (user?.tenantId && user.tenantId !== tenantId) {
+    throw new Error("Tenant identity mismatch");
+  }
+
+  const resolvedTenantId = user?.tenantId || tenantId;
+  if (!resolvedTenantId) {
+    throw new Error("Tenant identity missing from session");
+  }
+
   const session: AuthSession = {
     token,
-    tenantId,
-    user: decodeJwtPayload(token),
+    tenantId: resolvedTenantId,
+    user,
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
   return session;

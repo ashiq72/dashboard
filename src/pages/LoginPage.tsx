@@ -9,6 +9,7 @@ import { getErrorMessage } from "../shared/utils";
 export function LoginPage() {
   const { session, setSession } = useAuth();
   const navigate = useNavigate();
+  const [workspace, setWorkspace] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -21,7 +22,7 @@ export function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      const response = await login(email, password);
+      const response = await login(email, password, workspace.trim() || undefined);
       const next = saveSession(response.data.accessToken, response.data.tenantId);
       setSession(next);
       navigate("/", { replace: true });
@@ -70,6 +71,15 @@ export function LoginPage() {
           </p>
           {error && <ErrorBanner message={error} />}
           <label>
+            Workspace ID
+            <input
+              value={workspace}
+              onChange={(event) => setWorkspace(event.target.value)}
+              placeholder="Optional for unique accounts"
+              autoComplete="organization"
+            />
+          </label>
+          <label>
             Email
             <input
               value={email}
@@ -92,12 +102,8 @@ export function LoginPage() {
           <button className="primary-button" type="submit" disabled={loading}>
             {loading ? "Signing in..." : "Sign in"}
           </button>
-          <p className="form-note">
-            API: {import.meta.env.VITE_API_URL || "http://localhost:4000/api/v1"}
-          </p>
         </form>
       </section>
     </div>
   );
 }
-

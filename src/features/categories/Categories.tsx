@@ -6,12 +6,22 @@ import {
   useMemo,
   useState,
 } from "react";
-import { ChevronRight, Image, Layers, Plus, RefreshCw, Tags } from "lucide-react";
+import {
+  ArrowLeft,
+  ChevronRight,
+  Image,
+  Layers,
+  Plus,
+  RefreshCw,
+  Tags,
+} from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ecommerceApi } from "../../lib/api";
 import type { ApiMeta, Category } from "../../types";
 import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
 import { activeLabel, getErrorMessage } from "../../shared/utils";
 import { EmptyState, ErrorBanner, StatusPill } from "../../shared/ui/feedback";
+import { ImageUploadField } from "../../shared/ui/ImageUploadField";
 import {
   DataPage,
   MetricCard,
@@ -65,13 +75,13 @@ const maxCategoryDepth = (categories: Category[], depth = 0): number =>
   );
 
 export function Categories() {
+  const navigate = useNavigate();
   const [rows, setRows] = useState<Category[]>([]);
   const [tree, setTree] = useState<Category[]>([]);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"all" | "active" | "inactive">("all");
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState<ApiMeta>({});
-  const [selectedParent, setSelectedParent] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const debouncedSearch = useDebouncedValue(search);
@@ -136,6 +146,10 @@ export function Categories() {
             <RefreshCw size={16} />
             Refresh
           </button>
+          <Link className="primary-button" to="/categories/new">
+            <Plus size={16} />
+            New category
+          </Link>
         </div>
       }
     >
@@ -168,19 +182,13 @@ export function Categories() {
         />
       </div>
 
-      <div className="category-command-grid">
-        <CategoryCreateForm
-          options={categoryOptions}
-          selectedParent={selectedParent}
-          onParentChange={setSelectedParent}
-          onCreated={load}
-        />
-        <CategoryTreePanel
-          tree={tree}
-          loading={loading}
-          onAddChild={setSelectedParent}
-        />
-      </div>
+      <CategoryTreePanel
+        tree={tree}
+        loading={loading}
+        onAddChild={(parentId) =>
+          navigate(`/categories/new?parent=${parentId}`)
+        }
+      />
 
       <div className="category-grid">
         {rows.map((category) => (
@@ -218,6 +226,61 @@ export function Categories() {
   );
 }
 
+export function CategoryCreatePage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [tree, setTree] = useState<Category[]>([]);
+  const [selectedParent, setSelectedParent] = useState(
+    searchParams.get("parent") || "",
+  );
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const loadTree = async () => {
+      setLoading(true);
+      try {
+        setTree(await ecommerceApi.categoryTree());
+      } catch (err) {
+        setError(getErrorMessage(err, "Category chain could not be loaded"));
+      } finally {
+        setLoading(false);
+      }
+    };
+    void loadTree();
+  }, []);
+
+  const options = useMemo(() => flattenCategoryTree(tree), [tree]);
+
+  return (
+    <DataPage
+      title="Create category"
+      detail="Add a root category or place it anywhere in the catalog hierarchy"
+      actions={
+        <Link className="ghost-button" to="/categories">
+          <ArrowLeft size={16} />
+          Category list
+        </Link>
+      }
+    >
+      {error && <ErrorBanner message={error} />}
+      <div className="category-create-layout">
+        <CategoryCreateForm
+          options={options}
+          selectedParent={selectedParent}
+          onParentChange={setSelectedParent}
+          onCreated={async () => navigate("/categories")}
+        />
+        <CategoryTreePanel
+          tree={tree}
+          loading={loading}
+          onAddChild={setSelectedParent}
+        />
+      </div>
+    </DataPage>
+  );
+}
+
 function CategoryCreateForm({
   options,
   selectedParent,
@@ -231,6 +294,7 @@ function CategoryCreateForm({
 }) {
   const [name, setName] = useState("");
   const [image, setImage] = useState("");
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const selected = options.find((option) => option.id === selectedParent);
@@ -240,13 +304,22 @@ function CategoryCreateForm({
     setSaving(true);
     setError("");
     try {
-      await ecommerceApi.createCategory({
-        name,
-        image: image || undefined,
-        parent: selectedParent || null,
-      });
+      if (imageFiles.length) {
+        const formData = new FormData();
+        formData.set("name", name);
+        formData.set("parent", selectedParent || "null");
+        formData.set("image", imageFiles[0]);
+        await ecommerceApi.createCategoryForm(formData);
+      } else {
+        await ecommerceApi.createCategory({
+          name,
+          image: image || undefined,
+          parent: selectedParent || null,
+        });
+      }
       setName("");
       setImage("");
+      setImageFiles([]);
       await onCreated();
     } catch (err) {
       setError(getErrorMessage(err, "Category could not be created"));
@@ -291,6 +364,15 @@ function CategoryCreateForm({
             type="url"
           />
         </label>
+        <div className="form-wide">
+          <ImageUploadField
+            title="Upload category image"
+            files={imageFiles}
+            onFilesChange={setImageFiles}
+            existingUrls={image ? [image] : []}
+            compact
+          />
+        </div>
         <button className="primary-button form-submit" type="submit" disabled={saving}>
           <Plus size={16} />
           {saving ? "Creating..." : "Create category"}

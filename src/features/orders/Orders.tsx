@@ -103,9 +103,15 @@ export function Orders() {
                 <td>{money(order.total, order.currency || "USD")}</td>
                 <td>
                   <StatusPill status={order.paymentStatus} />
+                  <span className="muted-block">
+                    {(order.paymentMethod || "cash_on_delivery").replaceAll("_", " ")}
+                  </span>
                 </td>
                 <td>
                   <StatusPill status={order.fulfillmentStatus} />
+                  <span className="muted-block">
+                    {order.shippingMethod?.name || "No method"}
+                  </span>
                 </td>
                 <td>
                   <select
@@ -140,4 +146,3 @@ export function Orders() {
     </DataPage>
   );
 }
-

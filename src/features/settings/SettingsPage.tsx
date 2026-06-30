@@ -2,6 +2,7 @@ import { useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { getTenantId, healthCheck } from "../../lib/api";
 import { useAuth } from "../../app/auth";
+import { useTenant } from "../../app/tenant";
 import { date, getErrorMessage } from "../../shared/utils";
 import { StatusPill } from "../../shared/ui/feedback";
 import { DataPage, PanelTitle } from "../../shared/ui/page";
@@ -47,12 +48,23 @@ function HealthCheckPanel() {
 
 export function SettingsPage() {
   const { session } = useAuth();
+  const { tenant, loading, refreshTenant } = useTenant();
 
   return (
     <DataPage
       title="Settings"
-      detail="Connection and tenant configuration"
-      actions={null}
+      detail="Workspace identity, plan, and API connection"
+      actions={
+        <button
+          className="ghost-button"
+          type="button"
+          disabled={loading}
+          onClick={() => void refreshTenant()}
+        >
+          <RefreshCw size={16} />
+          {loading ? "Refreshing..." : "Refresh workspace"}
+        </button>
+      }
     >
       <div className="settings-grid">
         <div className="panel">
@@ -63,7 +75,7 @@ export function SettingsPage() {
               <dd>{import.meta.env.VITE_API_URL || "http://localhost:4000/api/v1"}</dd>
             </div>
             <div>
-              <dt>Tenant header</dt>
+              <dt>Workspace ID</dt>
               <dd>{session?.tenantId || getTenantId()}</dd>
             </div>
             <div>
@@ -73,6 +85,27 @@ export function SettingsPage() {
             <div>
               <dt>Session</dt>
               <dd>{session?.user?.role || "Authenticated"}</dd>
+            </div>
+          </dl>
+        </div>
+        <div className="panel">
+          <PanelTitle title="SaaS workspace" detail="Authenticated tenant profile" />
+          <dl className="details-list">
+            <div>
+              <dt>Status</dt>
+              <dd>{tenant?.status || "Loading"}</dd>
+            </div>
+            <div>
+              <dt>Plan</dt>
+              <dd>{tenant?.plan || "basic"}</dd>
+            </div>
+            <div>
+              <dt>Domain</dt>
+              <dd>{tenant?.domain || tenant?.subdomain || "Not configured"}</dd>
+            </div>
+            <div>
+              <dt>Region</dt>
+              <dd>{tenant?.region || "Default"}</dd>
             </div>
           </dl>
         </div>
@@ -91,4 +124,3 @@ export function SettingsPage() {
     </DataPage>
   );
 }
-

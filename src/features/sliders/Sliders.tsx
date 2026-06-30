@@ -1,10 +1,12 @@
 import { type FormEvent, useCallback, useEffect, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { ecommerceApi } from "../../lib/api";
 import type { ApiMeta, Slider } from "../../types";
 import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
 import { activeLabel, confirmAction, getErrorMessage } from "../../shared/utils";
 import { EmptyState, ErrorBanner, StatusPill } from "../../shared/ui/feedback";
+import { ImageUploadField } from "../../shared/ui/ImageUploadField";
 import { DataPage, Pagination, PanelTitle, SearchBox } from "../../shared/ui/page";
 
 export function Sliders() {
@@ -13,13 +15,7 @@ export function Sliders() {
   const [status, setStatus] = useState<"all" | "active" | "inactive">("all");
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState<ApiMeta>({});
-  const [title, setTitle] = useState("");
-  const [subtitle, setSubtitle] = useState("");
-  const [image, setImage] = useState("");
-  const [link, setLink] = useState("");
-  const [buttonText, setButtonText] = useState("");
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const debouncedSearch = useDebouncedValue(search);
 
@@ -49,32 +45,6 @@ export function Sliders() {
   useEffect(() => {
     setPage(1);
   }, [debouncedSearch, status]);
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    setSaving(true);
-    setError("");
-    try {
-      await ecommerceApi.createSlider({
-        title,
-        subtitle: subtitle || undefined,
-        image,
-        link: link || undefined,
-        buttonText: buttonText || undefined,
-        isActive: true,
-      });
-      setTitle("");
-      setSubtitle("");
-      setImage("");
-      setLink("");
-      setButtonText("");
-      await load();
-    } catch (err) {
-      setError(getErrorMessage(err, "Slider could not be created"));
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const toggle = async (slider: Slider) => {
     setError("");
@@ -116,45 +86,14 @@ export function Sliders() {
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
           </select>
+          <Link className="primary-button" to="/sliders/new">
+            <Plus size={16} />
+            New slider
+          </Link>
         </div>
       }
     >
       {error && <ErrorBanner message={error} />}
-      <section className="panel admin-form-panel">
-        <PanelTitle title="Add slider" detail="Create a storefront promotion" />
-        <form className="admin-form" onSubmit={submit}>
-          <label>
-            Title
-            <input value={title} onChange={(event) => setTitle(event.target.value)} required />
-          </label>
-          <label>
-            Button
-            <input value={buttonText} onChange={(event) => setButtonText(event.target.value)} />
-          </label>
-          <label className="form-wide">
-            Image URL
-            <input
-              value={image}
-              onChange={(event) => setImage(event.target.value)}
-              type="url"
-              placeholder="https://..."
-              required
-            />
-          </label>
-          <label className="form-wide">
-            Subtitle
-            <input value={subtitle} onChange={(event) => setSubtitle(event.target.value)} />
-          </label>
-          <label className="form-wide">
-            Link
-            <input value={link} onChange={(event) => setLink(event.target.value)} />
-          </label>
-          <button className="primary-button form-submit" type="submit" disabled={saving}>
-            <Plus size={16} />
-            {saving ? "Creating..." : "Create slider"}
-          </button>
-        </form>
-      </section>
       <div className="slider-grid">
         {rows.map((slider) => (
           <article className="slider-card" key={slider._id}>
@@ -198,3 +137,125 @@ export function Sliders() {
   );
 }
 
+export function SliderCreatePage() {
+  const navigate = useNavigate();
+  const [title, setTitle] = useState("");
+  const [subtitle, setSubtitle] = useState("");
+  const [image, setImage] = useState("");
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [link, setLink] = useState("");
+  const [buttonText, setButtonText] = useState("");
+  const [order, setOrder] = useState("0");
+  const [isActive, setIsActive] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      if (imageFiles.length) {
+        const formData = new FormData();
+        formData.set("title", title);
+        formData.set("subtitle", subtitle);
+        formData.set("link", link);
+        formData.set("buttonText", buttonText);
+        formData.set("order", String(Number(order) || 0));
+        formData.set("isActive", String(isActive));
+        formData.set("image", imageFiles[0]);
+        await ecommerceApi.createSliderForm(formData);
+      } else {
+        await ecommerceApi.createSlider({
+          title,
+          subtitle: subtitle || undefined,
+          image,
+          link: link || undefined,
+          buttonText: buttonText || undefined,
+          order: Number(order) || 0,
+          isActive,
+        });
+      }
+      navigate("/sliders");
+    } catch (err) {
+      setError(getErrorMessage(err, "Slider could not be created"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <DataPage
+      title="Create slider"
+      detail="Prepare a storefront promotion with focused campaign content"
+      actions={
+        <Link className="ghost-button" to="/sliders">
+          <ArrowLeft size={16} />
+          Slider list
+        </Link>
+      }
+    >
+      {error && <ErrorBanner message={error} />}
+      <section className="panel admin-form-panel create-form-panel">
+        <PanelTitle title="Promotion details" detail="Content, destination, and visibility" />
+        <form className="admin-form" onSubmit={submit}>
+          <label>
+            Title
+            <input value={title} onChange={(event) => setTitle(event.target.value)} required />
+          </label>
+          <label>
+            Button label
+            <input value={buttonText} onChange={(event) => setButtonText(event.target.value)} />
+          </label>
+          <label>
+            Display order
+            <input
+              value={order}
+              onChange={(event) => setOrder(event.target.value)}
+              type="number"
+              min="0"
+            />
+          </label>
+          <label className="check-row">
+            <input
+              checked={isActive}
+              onChange={(event) => setIsActive(event.target.checked)}
+              type="checkbox"
+            />
+            Active promotion
+          </label>
+          <label className="form-wide">
+            Image URL
+            <input
+              value={image}
+              onChange={(event) => setImage(event.target.value)}
+              type="url"
+              placeholder="https://..."
+              required={!imageFiles.length}
+            />
+          </label>
+          <div className="form-wide">
+            <ImageUploadField
+              title="Upload slider image"
+              files={imageFiles}
+              onFilesChange={setImageFiles}
+              existingUrls={image ? [image] : []}
+            />
+          </div>
+          <label className="form-wide">
+            Subtitle
+            <input value={subtitle} onChange={(event) => setSubtitle(event.target.value)} />
+          </label>
+          <label className="form-wide">
+            Destination link
+            <input value={link} onChange={(event) => setLink(event.target.value)} />
+          </label>
+          <button className="primary-button form-submit" type="submit" disabled={saving}>
+            <Plus size={16} />
+            {saving ? "Creating..." : "Create slider"}
+          </button>
+        </form>
+      </section>
+    </DataPage>
+  );
+}
