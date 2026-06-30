@@ -4,6 +4,7 @@ import type {
   Category,
   CategoryPayload,
   FulfillmentStatus,
+  InventoryAdjustPayload,
   ListResult,
   LowStockReport,
   Order,
@@ -12,6 +13,7 @@ import type {
   Product,
   ProductPayload,
   ProductStatus,
+  ProductUpdatePayload,
   Slider,
   SliderPayload,
   Warehouse,
@@ -198,12 +200,44 @@ export const ecommerceApi = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  updateProduct: (id: string, payload: ProductUpdatePayload) =>
+    apiRequest<Product>(`/ecommerce/products/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  updateProductForm: (id: string, formData: FormData) =>
+    apiRequest<Product>(`/ecommerce/products/${id}`, {
+      method: "PATCH",
+      body: formData,
+    }),
+  deleteProduct: (id: string) =>
+    apiRequest<Product>(`/ecommerce/products/${id}`, {
+      method: "DELETE",
+    }),
+  adjustProductInventory: (id: string, payload: InventoryAdjustPayload) =>
+    apiRequest<Product>(`/ecommerce/products/${id}/inventory/adjust`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   categories: (query?: Query) =>
     list<Category>("/ecommerce/categories", { limit: 50, ...query }),
+  categoryTree: async () => {
+    const response = await apiRequest<Category[]>("/ecommerce/categories/tree");
+    return Array.isArray(response.data) ? response.data : [];
+  },
   createCategory: (payload: CategoryPayload) =>
     apiRequest<Category>("/ecommerce/categories/create-category", {
       method: "POST",
       body: JSON.stringify(payload),
+    }),
+  updateCategory: (id: string, payload: Partial<CategoryPayload>) =>
+    apiRequest<Category>(`/ecommerce/categories/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  deleteCategory: (id: string) =>
+    apiRequest<Category>(`/ecommerce/categories/${id}`, {
+      method: "DELETE",
     }),
   orders: (query?: Query) =>
     list<Order>("/ecommerce/orders", { limit: 50, ...query }),
