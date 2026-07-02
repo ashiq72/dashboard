@@ -27,6 +27,8 @@ import type {
   CollectionPayload,
   Campaign,
   CampaignPayload,
+  Brand,
+  BrandPayload,
 } from "../types";
 import { clearSession, getStoredSession, notifySessionExpired } from "./session";
 
@@ -403,6 +405,31 @@ export const ecommerceApi = {
     }),
   deleteCampaign: (id: string) =>
     apiRequest<Campaign>(`/ecommerce/campaigns/${id}`, {
+      method: "DELETE",
+    }),
+  brands: () => list<Brand>("/ecommerce/brands"),
+  createBrand: (payload: BrandPayload) =>
+    apiRequest<Brand>("/ecommerce/brands", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  createBrandForm: (formData: FormData) =>
+    apiRequest<Brand>("/ecommerce/brands", {
+      method: "POST",
+      body: formData,
+    }),
+  updateBrand: (id: string, payload: Partial<BrandPayload>) =>
+    apiRequest<Brand>(`/ecommerce/brands/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  updateBrandForm: (id: string, formData: FormData) =>
+    apiRequest<Brand>(`/ecommerce/brands/${id}`, {
+      method: "PATCH",
+      body: formData,
+    }),
+  deleteBrand: (id: string) =>
+    apiRequest<Brand>(`/ecommerce/brands/${id}`, {
       method: "DELETE",
     }),
 };

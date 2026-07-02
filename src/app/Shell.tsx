@@ -17,6 +17,7 @@ import {
   Tags,
   Truck,
   BadgePercent,
+  BadgeCheck,
   Layers3,
   X,
 } from "lucide-react";
@@ -54,6 +55,7 @@ import {
   CampaignCreatePage,
   Campaigns,
 } from "../features/campaigns/Campaigns";
+import { BrandCreatePage, Brands } from "../features/brands/Brands";
 
 const navGroups = [
   {
@@ -65,6 +67,7 @@ const navGroups = [
     items: [
       { to: "/products", label: "Products", icon: ShoppingBag },
       { to: "/categories", label: "Categories", icon: Tags },
+      { to: "/brands", label: "Brands", icon: BadgeCheck },
       { to: "/inventory", label: "Inventory", icon: Boxes },
       { to: "/warehouses", label: "Warehouses", icon: Truck },
       { to: "/shipping", label: "Shipping", icon: Truck },
@@ -243,6 +246,8 @@ export function Shell() {
             <Route path="/collections/new" element={<CollectionCreatePage />} />
             <Route path="/campaigns" element={<Campaigns />} />
             <Route path="/campaigns/new" element={<CampaignCreatePage />} />
+            <Route path="/brands" element={<Brands />} />
+            <Route path="/brands/new" element={<BrandCreatePage />} />
           </Routes>
         </main>
       </div>

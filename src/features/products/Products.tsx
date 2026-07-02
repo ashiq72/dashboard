@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { ecommerceApi } from "../../lib/api";
+import { BrandField } from "../brands/BrandField";
 import type {
   ApiMeta,
   Category,
@@ -687,6 +688,12 @@ function ProductEditPanel({
   const buildPayload = (): ProductPayload => {
     const parsedPrice = numberOrUndefined(price);
     if (parsedPrice === undefined) throw new Error("Price is required");
+    const normalizedCurrency = currency.trim().toUpperCase();
+    if (!/^[A-Z]{3}$/.test(normalizedCurrency)) {
+      throw new Error(
+        "Currency must be a three-letter code such as BDT, USD, or EUR",
+      );
+    }
     const parsedSalePrice = numberOrUndefined(salePrice);
     if (parsedSalePrice !== undefined && parsedSalePrice > parsedPrice) {
       throw new Error("Sale price must be less than or equal to price");
@@ -703,7 +710,7 @@ function ProductEditPanel({
         isActive: variant.isActive !== false,
         attributes: variant.attributes,
       }))
-      .filter((variant) => variant.sku || variant.price !== undefined);
+      .filter((variant) => Boolean(variant.sku?.trim()));
     const variantSkus = normalizedVariants
       .map((variant) => variant.sku)
       .filter((value): value is string => Boolean(value));
@@ -765,7 +772,7 @@ function ProductEditPanel({
       price: parsedPrice,
       salePrice: parsedSalePrice,
       costPrice: numberOrUndefined(costPrice),
-      currency: currency || undefined,
+      currency: normalizedCurrency,
       trackStock,
       stock: numberOrUndefined(stock),
       lowStockThreshold: numberOrUndefined(lowStockThreshold),
@@ -1103,7 +1110,7 @@ function ProductEditPanel({
             </label>
             <label>
               Brand
-              <input value={brand} onChange={(event) => setBrand(event.target.value)} />
+              <BrandField value={brand} onChange={setBrand} />
             </label>
             <label>
               Status
@@ -1267,7 +1274,32 @@ function ProductEditPanel({
             </label>
             <label>
               Currency
-              <input value={currency} onChange={(event) => setCurrency(event.target.value.toUpperCase())} maxLength={3} />
+              <input
+                value={currency}
+                onChange={(event) =>
+                  setCurrency(
+                    event.target.value
+                      .replace(/[^a-z]/gi, "")
+                      .slice(0, 3)
+                      .toUpperCase(),
+                  )
+                }
+                maxLength={3}
+                pattern="[A-Za-z]{3}"
+                list="currency-codes"
+                placeholder="BDT"
+                title="Use a three-letter currency code such as BDT or USD"
+                required
+              />
+              <datalist id="currency-codes">
+                <option value="BDT" />
+                <option value="USD" />
+                <option value="EUR" />
+                <option value="GBP" />
+                <option value="INR" />
+                <option value="CAD" />
+                <option value="AUD" />
+              </datalist>
             </label>
           </div>
         )}

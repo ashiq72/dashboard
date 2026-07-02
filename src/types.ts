@@ -369,6 +369,24 @@ export type Branding = {
   updatedAt?: string;
 };
 
+export type Brand = {
+  _id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  logo?: string;
+  coverImage?: string;
+  website?: string;
+  priority?: number;
+  isFeatured?: boolean;
+  isActive?: boolean;
+  createdAt?: string;
+};
+
+export type BrandPayload = Omit<Brand, "_id" | "createdAt" | "slug"> & {
+  slug?: string;
+};
+
 export type ShippingMethod = {
   _id: string;
   name: string;
