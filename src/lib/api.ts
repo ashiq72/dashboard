@@ -36,7 +36,7 @@ const API_URL =
   import.meta.env.VITE_API_URL?.trim().replace(/\/+$/, "") ||
   "http://localhost:4000/api/v1";
 
-const DEFAULT_TENANT_ID = import.meta.env.VITE_TENANT_ID || "devtenant";
+const DEVELOPMENT_TENANT_ID = import.meta.env.VITE_TENANT_ID?.trim() || "";
 const REQUEST_TIMEOUT_MS = 20_000;
 
 type Query = Record<string, string | number | boolean | undefined>;
@@ -101,7 +101,7 @@ const parseJsonResponse = async <T>(response: Response): Promise<ApiResponse<T>>
 };
 
 export const getTenantId = () =>
-  getStoredSession()?.tenantId || DEFAULT_TENANT_ID;
+  getStoredSession()?.tenantId || DEVELOPMENT_TENANT_ID;
 
 export async function apiRequest<T>(
   path: string,
@@ -118,7 +118,11 @@ export async function apiRequest<T>(
   }
 
   if (tenantMode === "session" && !headers.has("x-tenant-id")) {
-    headers.set("x-tenant-id", session?.tenantId || DEFAULT_TENANT_ID);
+    const tenantId = session?.tenantId || DEVELOPMENT_TENANT_ID;
+    if (!tenantId) {
+      throw new Error("Sign in to select your store workspace.");
+    }
+    headers.set("x-tenant-id", tenantId);
   }
   if (session?.token) {
     headers.set("Authorization", `Bearer ${session.token}`);
@@ -173,10 +177,11 @@ export async function apiRequest<T>(
 }
 
 export async function login(email: string, password: string, tenantId?: string) {
+  const explicitTenantId = tenantId?.trim() || DEVELOPMENT_TENANT_ID;
   return apiRequest<{ accessToken: string; tenantId: string }>("/auth/login", {
     method: "POST",
     tenantMode: "none",
-    headers: tenantId ? { "x-tenant-id": tenantId } : undefined,
+    headers: explicitTenantId ? { "x-tenant-id": explicitTenantId } : undefined,
     body: JSON.stringify({ email, password }),
   });
 }

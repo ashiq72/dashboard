@@ -21,6 +21,7 @@ export type SessionUser = {
   email?: string;
   role?: string;
   tenantId?: string;
+  tenantCode?: string;
   exp?: number;
 };
 
@@ -32,6 +33,9 @@ export type AuthSession = {
 
 export type TenantWorkspace = {
   tenantId: string;
+  tenantCode?: string;
+  rootDomain?: string | null;
+  domainName?: string | null;
   email?: string | null;
   domain?: string | null;
   subdomain?: string | null;

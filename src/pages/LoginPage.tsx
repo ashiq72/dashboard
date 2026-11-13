@@ -67,16 +67,19 @@ export function LoginPage() {
           <p className="eyebrow">Sign in</p>
           <h2>Welcome back</h2>
           <p className="form-note">
-            Use your Base360 admin email and password.
+            Use your Base360 admin email and password. Add a store code if your
+            email belongs to more than one store.
           </p>
           {error && <ErrorBanner message={error} />}
           <label>
-            Workspace ID
+            Store code or ID (optional)
             <input
               value={workspace}
               onChange={(event) => setWorkspace(event.target.value)}
-              placeholder="Optional for unique accounts"
+              placeholder="Five-digit code or tenant ID"
               autoComplete="organization"
+              autoCapitalize="none"
+              spellCheck={false}
             />
           </label>
           <label>

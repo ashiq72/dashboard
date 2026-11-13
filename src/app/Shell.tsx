@@ -99,7 +99,7 @@ export function Shell() {
   const [collapsed, setCollapsed] = useState(false);
   const tenantId = session?.tenantId || getTenantId();
   const workspaceName =
-    tenant?.subdomain || tenant?.domain?.split(".")[0] || tenantId;
+    tenant?.domainName || tenant?.domain || tenant?.tenantCode || tenantId;
   const planLabel = tenant?.plan || "basic";
 
   const logout = () => {
