@@ -19,6 +19,7 @@ import type {
   Slider,
   SliderPayload,
   TenantWorkspace,
+  TenantDomain,
   Warehouse,
   WarehousePayload,
   ShippingMethod,
@@ -30,11 +31,16 @@ import type {
   Brand,
   BrandPayload,
 } from "../types";
-import { clearSession, getStoredSession, notifySessionExpired } from "./session";
+import {
+  clearSession,
+  getStoredSession,
+  notifySessionExpired,
+} from "./session";
+import { normalizePhone } from "./phone";
 
 const API_URL =
   import.meta.env.VITE_API_URL?.trim().replace(/\/+$/, "") ||
-  "http://localhost:4000/api/v1";
+  "http://localhost:5000/api/v1";
 
 const DEVELOPMENT_TENANT_ID = import.meta.env.VITE_TENANT_ID?.trim() || "";
 const REQUEST_TIMEOUT_MS = 20_000;
@@ -80,7 +86,9 @@ const readErrorMessage = async (response: Response) => {
   }
 };
 
-const parseJsonResponse = async <T>(response: Response): Promise<ApiResponse<T>> => {
+const parseJsonResponse = async <T>(
+  response: Response,
+): Promise<ApiResponse<T>> => {
   const text = await response.text();
   if (!text) {
     return { success: response.ok, data: null as T };
@@ -124,7 +132,7 @@ export async function apiRequest<T>(
     }
     headers.set("x-tenant-id", tenantId);
   }
-  if (session?.token) {
+  if (tenantMode === "session" && session?.token) {
     headers.set("Authorization", `Bearer ${session.token}`);
   }
 
@@ -137,9 +145,13 @@ export async function apiRequest<T>(
     if (requestOptions.signal.aborted) {
       controller.abort();
     } else {
-      requestOptions.signal.addEventListener("abort", () => controller.abort(), {
-        once: true,
-      });
+      requestOptions.signal.addEventListener(
+        "abort",
+        () => controller.abort(),
+        {
+          once: true,
+        },
+      );
     }
   }
 
@@ -168,7 +180,9 @@ export async function apiRequest<T>(
       );
     }
     if (error instanceof TypeError) {
-      throw new Error("Unable to reach the Base360 API. Check the server and CORS.");
+      throw new Error(
+        "Unable to reach the Base360 API. Check the server and CORS.",
+      );
     }
     throw error;
   } finally {
@@ -176,13 +190,27 @@ export async function apiRequest<T>(
   }
 }
 
-export async function login(email: string, password: string, tenantId?: string) {
+export async function login(
+  identifier: string,
+  password: string,
+  tenantId?: string,
+) {
+  const value = identifier.trim();
+  if (!value) throw new Error("Enter your email or phone number.");
+  const credential = value.includes("@")
+    ? { email: value.toLowerCase() }
+    : { phone: normalizePhone(value) };
+  if (credential.phone !== undefined && !/^01[0-9]{9}$/.test(credential.phone)) {
+    throw new Error(
+      "Enter a BD phone number such as 01712345678 or +8801712345678.",
+    );
+  }
   const explicitTenantId = tenantId?.trim() || DEVELOPMENT_TENANT_ID;
   return apiRequest<{ accessToken: string; tenantId: string }>("/auth/login", {
     method: "POST",
     tenantMode: "none",
     headers: explicitTenantId ? { "x-tenant-id": explicitTenantId } : undefined,
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ ...credential, password }),
   });
 }
 
@@ -197,10 +225,7 @@ export async function healthCheck() {
   );
 }
 
-const list = async <T>(
-  path: string,
-  query?: Query,
-): Promise<ListResult<T>> => {
+const list = async <T>(path: string, query?: Query): Promise<ListResult<T>> => {
   const response = await apiRequest<T[]>(`${path}${toQueryString(query)}`);
   return {
     rows: Array.isArray(response.data) ? response.data : [],
@@ -219,6 +244,30 @@ const normalizeLowStockReport = (data: unknown): LowStockReport => {
 
 export const ecommerceApi = {
   currentTenant: () => apiRequest<TenantWorkspace>("/tenants/current"),
+  tenantDomains: (tenantId: string) =>
+    apiRequest<TenantDomain[]>(
+      `/tenants/${encodeURIComponent(tenantId)}/domains`,
+    ),
+  addTenantDomain: (tenantId: string, hostname: string) =>
+    apiRequest<TenantDomain>(
+      `/tenants/${encodeURIComponent(tenantId)}/domains`,
+      { method: "POST", body: JSON.stringify({ hostname }) },
+    ),
+  verifyTenantDomain: (tenantId: string, domainId: string) =>
+    apiRequest<TenantDomain>(
+      `/tenants/${encodeURIComponent(tenantId)}/domains/${encodeURIComponent(domainId)}/verify`,
+      { method: "POST" },
+    ),
+  primaryTenantDomain: (tenantId: string, domainId: string) =>
+    apiRequest<TenantDomain>(
+      `/tenants/${encodeURIComponent(tenantId)}/domains/${encodeURIComponent(domainId)}`,
+      { method: "PATCH", body: JSON.stringify({ isPrimary: true }) },
+    ),
+  removeTenantDomain: (tenantId: string, domainId: string) =>
+    apiRequest<unknown>(
+      `/tenants/${encodeURIComponent(tenantId)}/domains/${encodeURIComponent(domainId)}`,
+      { method: "DELETE" },
+    ),
   products: (query?: Query) =>
     list<Product>("/ecommerce/products", { limit: 50, ...query }),
   productAdmin: (id: string) =>

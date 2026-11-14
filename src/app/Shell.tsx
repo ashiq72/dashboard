@@ -23,8 +23,8 @@ import {
 } from "lucide-react";
 import { NavLink, Route, Routes } from "react-router-dom";
 import { getTenantId } from "../lib/api";
-import { useAuth } from "./auth";
-import { useTenant } from "./tenant";
+import { useAuth } from "./auth-context";
+import { useTenant } from "./tenant-context";
 import { Overview } from "../features/overview/Overview";
 import { ProductCreatePage, Products } from "../features/products/Products";
 import { Orders } from "../features/orders/Orders";
@@ -51,10 +51,7 @@ import {
   CollectionCreatePage,
   Collections,
 } from "../features/collections/Collections";
-import {
-  CampaignCreatePage,
-  Campaigns,
-} from "../features/campaigns/Campaigns";
+import { CampaignCreatePage, Campaigns } from "../features/campaigns/Campaigns";
 import { BrandCreatePage, Brands } from "../features/brands/Brands";
 
 const navGroups = [
@@ -99,8 +96,12 @@ export function Shell() {
   const [collapsed, setCollapsed] = useState(false);
   const tenantId = session?.tenantId || getTenantId();
   const workspaceName =
-    tenant?.domainName || tenant?.domain || tenant?.tenantCode || tenantId;
-  const planLabel = tenant?.plan || "basic";
+    tenant?.name ||
+    tenant?.domainName ||
+    tenant?.domain ||
+    tenant?.tenantCode ||
+    tenantId;
+  const planLabel = tenant?.plan;
 
   const logout = () => {
     setSession(null);
@@ -124,7 +125,11 @@ export function Shell() {
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            {collapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
+            {collapsed ? (
+              <PanelLeftOpen size={17} />
+            ) : (
+              <PanelLeftClose size={17} />
+            )}
           </button>
         </div>
 
@@ -137,9 +142,15 @@ export function Shell() {
             <strong>{tenantLoading ? "Loading..." : workspaceName}</strong>
           </div>
           <span
-            className={`store-live ${tenant?.status === "disabled" ? "paused" : ""}`}
+            className={`store-live ${tenant?.status !== "active" ? "paused" : ""}`}
           >
-            {tenant?.status === "disabled" ? "Paused" : "Live"}
+            {tenantLoading
+              ? "Loading"
+              : tenant?.status === "active"
+                ? "Active"
+                : tenant?.status === "disabled"
+                  ? "Paused"
+                  : "Unavailable"}
           </span>
         </div>
 
@@ -177,7 +188,9 @@ export function Shell() {
                 .toUpperCase()}
             </div>
             <div className="account-copy">
-              <strong>{session?.user?.name || session?.user?.email || "Admin"}</strong>
+              <strong>
+                {session?.user?.name || session?.user?.email || "Admin"}
+              </strong>
               <span>{session?.user?.role || "Store administrator"}</span>
             </div>
             <button
@@ -193,7 +206,11 @@ export function Shell() {
           <div className="tenant-trust">
             <ShieldCheck size={15} />
             <span>
-              {planLabel} plan{tenant?.region ? ` / ${tenant.region}` : ""}
+              {tenantLoading
+                ? "Loading workspace…"
+                : tenant
+                  ? `Store ${tenant.tenantCode || "code not assigned"}${planLabel ? ` / ${planLabel} plan` : ""}`
+                  : "Workspace unavailable"}
             </span>
           </div>
         </div>
@@ -210,12 +227,16 @@ export function Shell() {
             {open ? <X size={20} /> : <Menu size={20} />}
           </button>
           <div>
-            <p className="eyebrow">{planLabel} SaaS workspace</p>
+            <p className="eyebrow">
+              {planLabel ? `${planLabel} SaaS workspace` : "SaaS workspace"}
+            </p>
             <h1>{workspaceName}</h1>
           </div>
           <div className="topbar-actions">
             <div className="user-chip">
-              <span>{session?.user?.name || session?.user?.email || "Admin"}</span>
+              <span>
+                {session?.user?.name || session?.user?.email || "Admin"}
+              </span>
               <ChevronDown size={16} />
             </div>
             <button className="ghost-button" type="button" onClick={logout}>

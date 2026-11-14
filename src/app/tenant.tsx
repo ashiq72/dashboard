@@ -1,77 +1,83 @@
 import {
-  createContext,
   type ReactNode,
-  useContext,
+  useCallback,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import { ecommerceApi } from "../lib/api";
 import type { TenantWorkspace } from "../types";
-import { useAuth } from "./auth";
-
-type TenantContextValue = {
-  tenant: TenantWorkspace | null;
-  loading: boolean;
-  refreshTenant: () => Promise<void>;
-};
-
-const TenantContext = createContext<TenantContextValue | null>(null);
-
-export const useTenant = () => {
-  const value = useContext(TenantContext);
-  if (!value) throw new Error("Tenant context missing");
-  return value;
-};
+import { useAuth } from "./auth-context";
+import { TenantContext } from "./tenant-context";
+import { getErrorMessage } from "../shared/utils";
 
 export function TenantProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
-  const [tenant, setTenant] = useState<TenantWorkspace | null>(null);
-  const [loading, setLoading] = useState(false);
+  const requestId = useRef(0);
+  const [result, setResult] = useState<{
+    token?: string;
+    tenant: TenantWorkspace | null;
+    loading: boolean;
+    error: string | null;
+  }>({ tenant: null, loading: false, error: null });
 
-  const refreshTenant = async () => {
+  const refreshTenant = useCallback(async () => {
+    const currentRequest = ++requestId.current;
     if (!session) {
-      setTenant(null);
+      setResult({ tenant: null, loading: false, error: null });
       return;
     }
 
-    setLoading(true);
+    setResult((previous) => ({
+      token: session.token,
+      tenant: previous.token === session.token ? previous.tenant : null,
+      loading: true,
+      error: null,
+    }));
     try {
       const response = await ecommerceApi.currentTenant();
-      setTenant(response.data);
-    } catch {
-      setTenant(null);
-    } finally {
-      setLoading(false);
+      if (!response.data || response.data.tenantId !== session.tenantId) {
+        throw new Error(
+          "The workspace response does not match your signed-in store.",
+        );
+      }
+      if (currentRequest === requestId.current) {
+        setResult({
+          token: session.token,
+          tenant: response.data,
+          loading: false,
+          error: null,
+        });
+      }
+    } catch (error) {
+      if (currentRequest === requestId.current) {
+        setResult({
+          token: session.token,
+          tenant: null,
+          loading: false,
+          error: getErrorMessage(
+            error,
+            "Unable to load your workspace. Try refreshing.",
+          ),
+        });
+      }
     }
-  };
-
-  useEffect(() => {
-    let active = true;
-    if (!session) {
-      setTenant(null);
-      return;
-    }
-
-    setLoading(true);
-    void ecommerceApi
-      .currentTenant()
-      .then((response) => {
-        if (active) setTenant(response.data);
-      })
-      .catch(() => {
-        if (active) setTenant(null);
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
   }, [session]);
 
+  useEffect(() => {
+    void refreshTenant();
+    return () => {
+      requestId.current++;
+    };
+  }, [refreshTenant]);
+
+  const matchesSession = Boolean(session && result.token === session.token);
+  const tenant = matchesSession ? result.tenant : null;
+  const loading = Boolean(session) && (!matchesSession || result.loading);
+  const error = matchesSession ? result.error : null;
+
   return (
-    <TenantContext.Provider value={{ tenant, loading, refreshTenant }}>
+    <TenantContext.Provider value={{ tenant, loading, error, refreshTenant }}>
       {children}
     </TenantContext.Provider>
   );

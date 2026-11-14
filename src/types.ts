@@ -32,6 +32,8 @@ export type AuthSession = {
 };
 
 export type TenantWorkspace = {
+  name?: string | null;
+  address?: string | null;
   tenantId: string;
   tenantCode?: string;
   rootDomain?: string | null;
@@ -44,6 +46,18 @@ export type TenantWorkspace = {
   region?: string;
   createdAt?: string;
   updatedAt?: string;
+};
+
+export type TenantDomain = {
+  _id: string;
+  hostname: string;
+  rootDomain: string;
+  domainName: string;
+  subdomain: string | null;
+  verificationStatus: "pending" | "verified";
+  verificationMethod?: "dns" | "admin";
+  verificationRecord?: { type: "TXT"; name: string; value: string } | null;
+  isPrimary: boolean;
 };
 
 export type ProductStatus = "draft" | "active" | "archived";

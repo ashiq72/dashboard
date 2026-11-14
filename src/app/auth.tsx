@@ -1,20 +1,8 @@
-import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { clearSession, getStoredSession } from "../lib/session";
 import type { AuthSession } from "../types";
-
-type AuthContextValue = {
-  session: AuthSession | null;
-  setSession: (session: AuthSession | null) => void;
-};
-
-const AuthContext = createContext<AuthContextValue | null>(null);
-
-export const useAuth = () => {
-  const value = useContext(AuthContext);
-  if (!value) throw new Error("Auth context missing");
-  return value;
-};
+import { AuthContext, useAuth } from "./auth-context";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSessionState] = useState<AuthSession | null>(() =>

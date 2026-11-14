@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { getTenantId, healthCheck } from "../../lib/api";
-import { useAuth } from "../../app/auth";
-import { useTenant } from "../../app/tenant";
+import { useAuth } from "../../app/auth-context";
+import { useTenant } from "../../app/tenant-context";
 import { date, getErrorMessage } from "../../shared/utils";
-import { StatusPill } from "../../shared/ui/feedback";
+import { ErrorBanner, StatusPill } from "../../shared/ui/feedback";
 import { DataPage, PanelTitle } from "../../shared/ui/page";
+import { TenantDomainsPanel } from "./TenantDomainsPanel";
 
 function HealthCheckPanel() {
   const [checking, setChecking] = useState(false);
@@ -35,10 +36,17 @@ function HealthCheckPanel() {
     <div className="panel">
       <PanelTitle title="API health" detail="Connectivity check" />
       <div className="health-row">
-        <StatusPill status={healthy === null ? "pending" : healthy ? "active" : "failed"} />
+        <StatusPill
+          status={healthy === null ? "pending" : healthy ? "active" : "failed"}
+        />
         <span>{message}</span>
       </div>
-      <button className="ghost-button" type="button" onClick={() => void check()} disabled={checking}>
+      <button
+        className="ghost-button"
+        type="button"
+        onClick={() => void check()}
+        disabled={checking}
+      >
         <RefreshCw size={16} />
         {checking ? "Checking..." : "Check API"}
       </button>
@@ -48,7 +56,8 @@ function HealthCheckPanel() {
 
 export function SettingsPage() {
   const { session } = useAuth();
-  const { tenant, loading, refreshTenant } = useTenant();
+  const { tenant, loading, error, refreshTenant } = useTenant();
+  const unavailable = loading ? "Loading…" : "Unavailable";
 
   return (
     <DataPage
@@ -66,16 +75,19 @@ export function SettingsPage() {
         </button>
       }
     >
+      {error ? <ErrorBanner message={error} /> : null}
       <div className="settings-grid">
         <div className="panel">
           <PanelTitle title="API connection" detail="Base360 backend target" />
           <dl className="details-list">
             <div>
               <dt>API URL</dt>
-              <dd>{import.meta.env.VITE_API_URL || "http://localhost:4000/api/v1"}</dd>
+              <dd>
+                {import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1"}
+              </dd>
             </div>
             <div>
-              <dt>Workspace ID</dt>
+              <dt>Internal tenant ID</dt>
               <dd>{session?.tenantId || getTenantId()}</dd>
             </div>
             <div>
@@ -89,38 +101,102 @@ export function SettingsPage() {
           </dl>
         </div>
         <div className="panel">
-          <PanelTitle title="SaaS workspace" detail="Authenticated tenant profile" />
+          <PanelTitle
+            title="SaaS workspace"
+            detail="Authenticated tenant profile"
+          />
           <dl className="details-list">
             <div>
+              <dt>Business name</dt>
+              <dd>{tenant ? tenant.name || "Not provided" : unavailable}</dd>
+            </div>
+            <div>
+              <dt>Tenant code</dt>
+              <dd>
+                {tenant ? tenant.tenantCode || "Not assigned yet" : unavailable}
+              </dd>
+            </div>
+            <div>
               <dt>Status</dt>
-              <dd>{tenant?.status || "Loading"}</dd>
+              <dd>
+                {tenant ? <StatusPill status={tenant.status} /> : unavailable}
+              </dd>
             </div>
             <div>
               <dt>Plan</dt>
-              <dd>{tenant?.plan || "basic"}</dd>
+              <dd>{tenant ? tenant.plan || "Not configured" : unavailable}</dd>
             </div>
             <div>
-              <dt>Domain</dt>
-              <dd>{tenant?.domain || tenant?.subdomain || "Not configured"}</dd>
+              <dt>Hostname</dt>
+              <dd>
+                {tenant ? tenant.domain || "Not configured" : unavailable}
+              </dd>
             </div>
             <div>
-              <dt>Region</dt>
-              <dd>{tenant?.region || "Default"}</dd>
+              <dt>Root domain</dt>
+              <dd>
+                {tenant ? tenant.rootDomain || "Not configured" : unavailable}
+              </dd>
+            </div>
+            <div>
+              <dt>Domain name</dt>
+              <dd>
+                {tenant ? tenant.domainName || "Not configured" : unavailable}
+              </dd>
+            </div>
+            <div>
+              <dt>Subdomain</dt>
+              <dd>
+                {tenant
+                  ? tenant.subdomain ||
+                    (tenant.domain ? "None (root domain)" : "Not configured")
+                  : unavailable}
+              </dd>
+            </div>
+            <div>
+              <dt>Address</dt>
+              <dd>
+                {tenant
+                  ? (tenant.address === undefined
+                      ? tenant.region
+                      : tenant.address) || "Not provided"
+                  : unavailable}
+              </dd>
             </div>
           </dl>
+          <p className="table-note">
+            Tenant ID and code stay the same when domains change. Contact your
+            platform administrator to update the address or plan.
+          </p>
         </div>
         <HealthCheckPanel />
         <div className="panel">
-          <PanelTitle title="Recommended backend modules" detail="Already detected in base360" />
+          <PanelTitle
+            title="Recommended backend modules"
+            detail="Already detected in base360"
+          />
           <div className="module-list">
-            {["Products", "Orders", "Categories", "Warehouses", "Branding", "Sliders"].map(
-              (module) => (
-                <span key={module}>{module}</span>
-              ),
-            )}
+            {[
+              "Products",
+              "Orders",
+              "Categories",
+              "Warehouses",
+              "Branding",
+              "Sliders",
+            ].map((module) => (
+              <span key={module}>{module}</span>
+            ))}
           </div>
         </div>
       </div>
+      {tenant &&
+      ["admin", "super_admin"].includes(session?.user?.role || "") ? (
+        <TenantDomainsPanel
+          key={tenant.tenantId}
+          tenantId={tenant.tenantId}
+          onChange={refreshTenant}
+        />
+      ) : null}
     </DataPage>
   );
 }

@@ -29,14 +29,20 @@ export const getStoredSession = (): AuthSession | null => {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const session = JSON.parse(raw) as AuthSession;
+    const user = decodeJwtPayload(session.token);
     if (
       !session.token ||
       !session.tenantId ||
-      (session.user?.tenantId && session.user.tenantId !== session.tenantId)
+      !user ||
+      user.tenantId !== session.tenantId ||
+      !["admin", "super_admin"].includes(user.role || "") ||
+      !user.exp ||
+      !Number.isFinite(user.exp)
     ) {
       clearSession();
       return null;
     }
+    session.user = user;
     if (isExpired(session)) {
       clearSession();
       return null;
@@ -50,8 +56,20 @@ export const getStoredSession = (): AuthSession | null => {
 
 export const saveSession = (token: string, tenantId: string): AuthSession => {
   const user = decodeJwtPayload(token);
-  if (user?.tenantId && user.tenantId !== tenantId) {
+  if (
+    !user ||
+    !user.tenantId ||
+    !user.exp ||
+    !Number.isFinite(user.exp) ||
+    user.exp * 1000 <= Date.now()
+  ) {
+    throw new Error("Invalid or expired sign-in response");
+  }
+  if (user.tenantId !== tenantId) {
     throw new Error("Tenant identity mismatch");
+  }
+  if (!["admin", "super_admin"].includes(user.role || "")) {
+    throw new Error("এই ড্যাশবোর্ড শুধু দোকানের অ্যাডমিনদের জন্য।");
   }
 
   const resolvedTenantId = user?.tenantId || tenantId;

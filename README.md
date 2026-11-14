@@ -1,7 +1,7 @@
 # Commerce360 dashboard
 
 This admin application uses Base360 at `VITE_API_URL` (default
-`http://localhost:4000/api/v1`). Copy `.env.example`, install dependencies,
+`http://localhost:5000/api/v1`). Copy `.env.example`, install dependencies,
 and run `npm run dev`.
 
 ## Tenant identity
